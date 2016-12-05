@@ -1,0 +1,29 @@
+Startup of Stateless Trackman.WebAPI
+
+Program.cs contains Main()
+	calls ServiceRuntime.RegisterAsync()
+	Tracker() constructor
+		CreateServiceInstanceListeners  cb handler
+			Instatiates ServiceInstanceListener
+			- serviceContext => OwinCommunicationListener
+			- with pointer to Startup.ConfigureApp
+			- context
+			- Name of Endpoint "ServiceEndpoint"
+		Startup.ConfigureApp
+			- Sets up routing
+
+			NOTE No RunAsync() !
+
+
+Startup of Stateful TRACKER
+
+Program.cs contains Main()
+	calls ServiceRuntime.RegisterAsync()  // and new TRACKER()
+	TRACKER constructor
+
+		CreateServiceReplicaListeners cb handler
+			return new ServiceReplicaListener[0];  // DEFAULT. WHAT IS THIS???
+
+		RunAsync()
+			while (true)....
+
