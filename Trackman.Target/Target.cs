@@ -1,13 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Runtime.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.ServiceFabric.Actors;
 using Microsoft.ServiceFabric.Actors.Runtime;
 using Microsoft.ServiceFabric.Actors.Client;
+using Microsoft.ServiceFabric.Data;
 using Trackman.Target.Interfaces;
+using Microsoft.ServiceFabric.Data.Collections;
 
 namespace Trackman.Target
 {
@@ -23,6 +26,8 @@ namespace Trackman.Target
     internal class Target : Actor, ITarget
     {
 
+        // public Dictionary<string, int> MyDict { get; private set; }
+        public IReliableDictionary<string, int> MyDict;
         /*
          * 
          * 
@@ -50,11 +55,49 @@ namespace Trackman.Target
         /// <param name="actorId">The Microsoft.ServiceFabric.Actors.ActorId for this actor instance.</param>
         public Target(ActorService actorService, ActorId actorId) : base(actorService, actorId)
         {
+            debugDict();
         }
 
+        public Task<int> GetCountAsync()
+        {
+            return this.StateManager.GetStateAsync<int>("SetLocations");
+        }
+
+        private async Task<int> getValue()
+        {
+            ConditionalValue<int> result = await this.StateManager.TryGetStateAsync<int>("MyState");
+            if (result.HasValue) {
+                return result.Value;
+            }
+            else {
+                return 0;
+            }
+        }
+
+        private async void debugDict()
+        {
+            int v = await getValue();
+            ActorEventSource.Current.ActorMessage(this, string.Format("Current Value From  state: {0}", v));
+        }
+        
+        private Task SetValue(int v)
+        {
+            return this.StateManager.SetStateAsync<int>("MyState", v);
+        }
+        private async Task incValue()
+        {
+            int v = await getValue();
+            await SetValue(v + 1);
+            await this.SaveStateAsync();
+            debugDict();
+        }
+    
+    
         public async Task<KeyValuePair<float, float>> GetLatestLocation()
         {
             ActorEventSource.Current.ActorMessage(this,"Target::GetLatestLocation()");
+
+            await incValue();
 
             var state = await StateManager.GetStateAsync<TargetState>("State");
             var location = state.LocationHistory.OrderByDescending(x => x.Timestamp).Select(x =>
@@ -67,6 +110,8 @@ namespace Trackman.Target
         public async Task SetLocation(DateTime timestamp, float latitude, float longitude)
         {
             ActorEventSource.Current.ActorMessage(this, "Target::SetLocation()");
+
+            await incValue();
 
             var state = await StateManager.GetStateAsync<TargetState>("State");
             state.LocationHistory.Add(new LocationAtTime() { Timestamp = timestamp, Latitude = latitude, Longitude = longitude });
